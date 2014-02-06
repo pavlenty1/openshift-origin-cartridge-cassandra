@@ -1,21 +1,40 @@
 #!/bin/bash
 
 SED=$(which sed);
+GREP=$(which grep);
 
 #
 # This is an example of reset password hook in Jelastic
 #
 
-J_OPENSHIFT_APP_ADM_USER="admin";   ### Specify your admin user ###
+J_OPENSHIFT_APP_ADM_USER="cassandra";   ### Specify your admin user ###
 #$J_OPENSHIFT_APP_ADM_USER              ;   ### The value of this variable is randomly generated and will be sent to a user by email
 
 function _setPassword() {
-    NEO4J_SERVER_PROP_FILE="${CARTRIDGE_APP_HOME}/conf/neo4j-server.properties"
-    $SED -i "s/^org.neo4j.server.credentials=.*/org.neo4j.server.credentials=${J_OPENSHIFT_APP_ADM_USER}:${J_OPENSHIFT_APP_ADM_PASSWORD}/" $NEO4J_SERVER_PROP_FILE;
-    service cartridge restart;
+        new_passwd_file=$(mktemp);
+        old_passwd_file=$(mktemp);
+        cassanra_conf="/opt/repo/versions/1.2.5/conf/cassandra.yaml";
+        cqlsh_app="/opt/repo/versions/1.2.5/bin/cqlsh";
+
+        echo ALTER USER cassandra WITH PASSWORD \'$J_OPENSHIFT_APP_ADM_PASSWORD\'\; > $new_passwd_file;
+        echo UPDATE system_auth.credentials set salted_hash=\'\$2a\$10\$vbfmLdkQdUz3Rmw.fF7Ygu6GuphqHndpJKTvElqAciUJ4SZ3pwquu\' where username=\'cassandra\'\; > $old_passwd_file;
+
+        export CQLSH_HOST=$OPENSHIFT_CASSANDRA_DB_HOST;
+        export CQLSH_PORT=$OPENSHIFT_CASSANDRA_DB_PORT;
+
+        # Init data neede for password auth
+        $SED -i 's/authenticator: org.apache.cassandra.auth.AllowAllAuthenticator/authenticator: org.apache.cassandra.auth.PasswordAuthenticator/g'     $cassanra_conf;
+        service cartridge restart > /dev/null 2>&1;
+
+        while netstat -lnt | awk '$4 ~ /:'"${OPENSHIFT_CASSANDRA_DB_PORT}"'$/ {exit 1}'; do sleep 1; done;
+        sleep 7;
+        $SED -i 's/authenticator: org.apache.cassandra.auth.PasswordAuthenticator/authenticator: org.apache.cassandra.auth.AllowAllAuthenticator/g'     $cassanra_conf;
+        service cartridge restart > /dev/null 2>&1;
+        while netstat -lnt | awk '$4 ~ /:'"${OPENSHIFT_CASSANDRA_DB_PORT}"'$/ {exit 1}'; do sleep 1; done;
+        [ -f "$old_passwd_file" ] && $cqlsh_app  --file $old_passwd_file;
+        $SED -i 's/authenticator: org.apache.cassandra.auth.AllowAllAuthenticator/authenticator: org.apache.cassandra.auth.PasswordAuthenticator/g'     $cassanra_conf;
+        service cartridge restart > /dev/null 2>&1;
+        while netstat -lnt | awk '$4 ~ /:'"${OPENSHIFT_CASSANDRA_DB_PORT}"'$/ {exit 1}'; do sleep 1; done;
+        [ -f "$new_passwd_file" ] && $cqlsh_app -u $J_OPENSHIFT_APP_ADM_USER -p "cassandra"  --file $new_passwd_file;
 }
-
-
-
-
 
