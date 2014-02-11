@@ -27,7 +27,7 @@ function _setPassword() {
         service cartridge restart > /dev/null 2>&1;
 
         while netstat -lnt | awk '$4 ~ /:'"${OPENSHIFT_CASSANDRA_DB_PORT}"'$/ {exit 1}'; do sleep 1; done;
-        sleep 7;
+        sleep 10;
         $SED -i 's/authenticator: org.apache.cassandra.auth.PasswordAuthenticator/authenticator: org.apache.cassandra.auth.AllowAllAuthenticator/g'     $cassanra_conf;
         service cartridge restart > /dev/null 2>&1;
         while netstat -lnt | awk '$4 ~ /:'"${OPENSHIFT_CASSANDRA_DB_PORT}"'$/ {exit 1}'; do sleep 1; done;
