@@ -7,8 +7,8 @@ GREP=$(which grep);
 # This is an example of reset password hook in Jelastic
 #
 
-J_OPENSHIFT_APP_ADM_USER="cassandra";   ### Specify your admin user ###
-#$J_OPENSHIFT_APP_ADM_USER              ;   ### The value of this variable is randomly generated and will be sent to a user by email
+#$J_OPENSHIFT_APP_ADM_USER        ;   Operate this variable for the username
+#$J_OPENSHIFT_APP_ADM_PASSWORD    ;   Use this varible for your password
 
 function _setPassword() {
         new_passwd_file=$(mktemp);
